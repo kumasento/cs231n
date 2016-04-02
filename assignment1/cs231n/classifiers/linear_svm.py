@@ -114,15 +114,14 @@ def svm_loss_vectorized(W, X, y, reg):
   margins_mask = margins_mask.astype(int)
   margins_mask = 1 - margins_mask
 
-  margins_mask[np.arange(num_train), y] = 0 # clear
   margins_mask[np.arange(num_train), y] = - np.sum(margins_mask, axis=1)
   
   # How to understand this magic:
   # Each row of margins_mask.T is a list of 'first class' coeffiencies for each
   # data row.
-  # Then each row in the final result is np.sum(X_after[i], axis=0). X_after is X * m[:, i]
-  dW = np.dot(margins_mask.T, X).T
-  dW /= num_train
+  # Then each row in the final result is np.sum(X_after[i], axis=0). 
+  # X_after is X * m[:, i]
+  dW = np.dot(margins_mask.T, X).T / num_train
 
   #############################################################################
   #                             END OF YOUR CODE                              #
