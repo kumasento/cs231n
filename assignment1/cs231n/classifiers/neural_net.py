@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 class TwoLayerNet(object):
   """
   A two-layer fully-connected neural network. The net has an input dimension of
@@ -74,7 +73,10 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    pass
+    scores = X.dot(W1)+b1       # after input layer
+    scores[scores<0] = 0        # apply ReLU
+    scores = scores.dot(W2)+b2  # after hidden layer
+    # The output of the hidden layer is the scores
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -92,7 +94,15 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    pass
+    scores = (scores.T-np.max(scores, axis=1)).T
+    exp_scores = np.exp(scores)
+    scores = (exp_scores.T/np.sum(exp_scores, axis=1)).T
+    losses = np.choose(y, scores.T)
+    losses = -np.log(losses)
+    loss = np.mean(losses)
+    # Every weight should be added
+    loss += 0.5*reg*np.sum(W1*W1) 
+    loss += 0.5*reg*np.sum(W2*W2)
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
