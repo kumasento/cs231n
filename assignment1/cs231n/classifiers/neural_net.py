@@ -73,9 +73,9 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    scores = X.dot(W1)+b1       # after input layer
-    scores[scores<0] = 0        # apply ReLU
-    scores = scores.dot(W2)+b2  # after hidden layer
+    h1 = X.dot(W1)+b1           # after input layer
+    ReLU = np.maximum(0, h1)    # apply ReLU
+    scores = ReLU.dot(W2)+b2    # after hidden layer
     # The output of the hidden layer is the scores
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -94,15 +94,20 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    scores = (scores.T-np.max(scores, axis=1)).T
+    # make floating point calculation happy
+    scores = scores-np.max(scores, axis=1).reshape(-1,1)
+    # two help matrix and vector
     exp_scores = np.exp(scores)
-    scores = (exp_scores.T/np.sum(exp_scores, axis=1)).T
+    sum_exp_scores = np.sum(exp_scores, axis=1)
+    # result for only softmax
+    scores = exp_scores/sum_exp_scores.reshape(-1,1)
+
+    # calculate losses
     losses = np.choose(y, scores.T)
     losses = -np.log(losses)
     loss = np.mean(losses)
     # Every weight should be added
-    loss += 0.5*reg*np.sum(W1*W1) 
-    loss += 0.5*reg*np.sum(W2*W2)
+    loss += 0.5*reg*(np.sum(W1*W1)+np.sum(W2*W2))
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -114,7 +119,33 @@ class TwoLayerNet(object):
     # and biases. Store the results in the grads dictionary. For example,       #
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
-    pass
+    # backward 1) output_layer -> softmax and loss
+    # From scores to loss
+    # dscores = loss's derivative of scores (A Jaccobi matrx)
+    dscores = scores
+    dscores[np.arange(N),y] -= 1
+    dscores /= N
+
+    # remember this regularization
+    dW2 = ReLU.T.dot(dscores)+reg*W2
+    # as b2 has been used multiple times(addition), so here need to sum up all 
+    # the usages
+    db2 = np.sum(dscores, axis=0)
+
+    dReLU = dscores.dot(W2.T)
+    # To understand this mask magic, take it as the input matrix's derivative
+    # before ReLU. 
+    # dReLU/dinput = 1(input > 0) or 0(input < 0)
+    # If input < 0, then ReLU == 0 (obviously.)
+    dReLU[ReLU == 0] = 0
+
+    dW1 = X.T.dot(dReLU)+reg*W1
+    db1 = np.sum(dReLU, axis=0)
+
+    grads['W1'] = dW1
+    grads['W2'] = dW2
+    grads['b1'] = db1
+    grads['b2'] = db2
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
