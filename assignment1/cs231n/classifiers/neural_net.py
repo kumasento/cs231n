@@ -142,6 +142,7 @@ class TwoLayerNet(object):
     dW1 = X.T.dot(dReLU)+reg*W1
     db1 = np.sum(dReLU, axis=0)
 
+    # assignment to the dictionary
     grads['W1'] = dW1
     grads['W2'] = dW2
     grads['b1'] = db1
@@ -189,7 +190,9 @@ class TwoLayerNet(object):
       # TODO: Create a random minibatch of training data and labels, storing  #
       # them in X_batch and y_batch respectively.                             #
       #########################################################################
-      pass
+      rand_indicies = np.random.choice(num_train, batch_size)
+      X_batch = X[rand_indicies]
+      y_batch = y[rand_indicies]
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -204,7 +207,10 @@ class TwoLayerNet(object):
       # using stochastic gradient descent. You'll need to use the gradients   #
       # stored in the grads dictionary defined above.                         #
       #########################################################################
-      pass
+      self.params['W1'] += -learning_rate * grads['W1']
+      self.params['W2'] += -learning_rate * grads['W2']
+      self.params['b1'] += -learning_rate * grads['b1']
+      self.params['b2'] += -learning_rate * grads['b2']
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -249,7 +255,9 @@ class TwoLayerNet(object):
     ###########################################################################
     # TODO: Implement this function; it should be VERY simple!                #
     ###########################################################################
-    pass
+    W1, W2 = self.params['W1'], self.params['W2']
+    b1, b2 = self.params['b1'], self.params['b2']
+    y_pred = np.argmax((np.maximum(X.dot(W1)+b1, 0)).dot(W2)+b2, axis=1)
     ###########################################################################
     #                              END OF YOUR CODE                           #
     ###########################################################################
