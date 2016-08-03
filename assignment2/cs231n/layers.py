@@ -528,8 +528,11 @@ def svm_loss(x, y):
   """
   N = x.shape[0]
   correct_class_scores = x[np.arange(N), y]
+  # calculate margins for each class
   margins = np.maximum(0, x - correct_class_scores[:, np.newaxis] + 1.0)
+  # mark the margin of correct class to 0
   margins[np.arange(N), y] = 0
+  # SVM loss
   loss = np.sum(margins) / N
   num_pos = np.sum(margins > 0, axis=1)
   dx = np.zeros_like(x)
