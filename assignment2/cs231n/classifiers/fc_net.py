@@ -197,6 +197,10 @@ class FullyConnectedNet(object):
       # assign 
       self.params['W' + str(i+1)] = np.random.randn(_input_dim, _output_dim) * weight_scale
       self.params['b' + str(i+1)] = np.zeros(_output_dim)
+      # each fc layer will have a batchnorm before afterwards relu layer
+      if self.use_batchnorm and self.num_layers != i+1:
+        self.params['gamma' + str(i+1)] = np.ones(_output_dim)
+        self.params['beta'  + str(i+1)] = np.zeros(_output_dim)
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -255,18 +259,34 @@ class FullyConnectedNet(object):
     # layer, etc.                                                              #
     ############################################################################
     out = X
-    caches = []
+    caches = {}
     for i in range(self.num_layers-1):
-      fc_out, fc_cache = affine_forward(out, self.params['W' + str(i+1)], self.params['b' + str(i+1)])
-      relu_out, relu_cache = relu_forward(fc_out)
-      # store caches
-      caches.append(fc_cache)
-      caches.append(relu_cache)
+      fc_in = out
+      fc_out, fc_cache = affine_forward(fc_in, self.params['W' + str(i+1)], self.params['b' + str(i+1)])
+      caches['fc' + str(i+1)] = fc_cache
+      relu_in = fc_out
+      
+      # batchnorm
+      if self.use_batchnorm:
+        gamma                   = self.params['gamma' + str(i+1)]
+        beta                    = self.params['beta'  + str(i+1)]
+        bn_out, bn_cache        = batchnorm_forward(fc_out, gamma, beta, self.bn_params[i])
+        relu_in                 = bn_out
+        caches['bn' + str(i+1)] = bn_cache
+
+      relu_out, relu_cache = relu_forward(relu_in)
+      caches['relu' + str(i+1)] = relu_cache
       # update input matrix
       out = relu_out
+      if self.use_dropout:
+        dp_out, dp_cache        = dropout_forward(relu_out, self.dropout_param)
+        caches['dp' + str(i+1)] = dp_cache
+        out                     = dp_out
+        
     # final affine forward layer
-    fc_out, fc_cache = affine_forward(out, self.params['W' + str(self.num_layers)], self.params['b' + str(self.num_layers)])
-    caches.append(fc_cache)
+    fc_out, fc_cache = affine_forward(out, self.params['W' + str(self.num_layers)],
+        self.params['b' + str(self.num_layers)])
+    caches['fc' + str(self.num_layers)] = fc_cache
     scores = fc_out
     ############################################################################
     #                             END OF YOUR CODE                             #
@@ -294,15 +314,29 @@ class FullyConnectedNet(object):
     # If we have many weights, regularization will sum them up.
     for i in range(self.num_layers):
       loss += 0.5 * self.reg * np.sum(self.params['W' + str(i+1)] ** 2)
-    
+
     # for the last affine layer
-    dx, grads['W' + str(self.num_layers)], grads['b' + str(self.num_layers)] = affine_backward(dx, caches[-1])
+    dx, grads['W' + str(self.num_layers)], grads['b' + str(self.num_layers)] = (
+        affine_backward(dx, caches['fc' + str(self.num_layers)]))
     grads['W' + str(self.num_layers)] += self.reg * self.params['W' + str(self.num_layers)]
 
     for i in reversed(range(self.num_layers-1)):
-      da = relu_backward(dx, caches[i*2+1])
-      dx, grads['W' + str(i+1)], grads['b' + str(i+1)] = affine_backward(da, caches[i*2])
+      if self.use_dropout:
+        ddp = dropout_backward(dx, caches['dp' + str(i+1)])
+        dx  = ddp
+
+      drelu = relu_backward(dx, caches['relu' + str(i+1)])
+      dfc   = drelu
+
+      if self.use_batchnorm:
+        dbn, dgamma, dbeta        = batchnorm_backward(drelu, caches['bn' + str(i+1)])
+        grads['gamma' + str(i+1)] = dgamma
+        grads['beta'  + str(i+1)] = dbeta
+        dfc                       = dbn
+
+      dx, grads['W' + str(i+1)], grads['b' + str(i+1)] = affine_backward(dfc, caches['fc' + str(i+1)])
       grads['W' + str(i+1)] += self.reg * self.params['W' + str(i+1)]
+      
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################

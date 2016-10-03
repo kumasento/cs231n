@@ -151,13 +151,13 @@ def batchnorm_forward(x, gamma, beta, bn_param):
   - out: of shape (N, D)
   - cache: A tuple of values needed in the backward pass
   """
-  mode = bn_param['mode']
-  eps = bn_param.get('eps', 1e-5)
+  mode     = bn_param['mode']
+  eps      = bn_param.get('eps', 1e-5)
   momentum = bn_param.get('momentum', 0.9)
 
-  N, D = x.shape
+  N, D         = x.shape
   running_mean = bn_param.get('running_mean', np.zeros(D, dtype=x.dtype))
-  running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
+  running_var  = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
 
   out, cache = None, None
   if mode == 'train':
@@ -174,7 +174,15 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # the momentum variable to update the running mean and running variance,    #
     # storing your result in the running_mean and running_var variables.        #
     #############################################################################
-    pass
+    sample_mean   = np.mean(x, axis=0)
+    sample_var    = np.std(x, axis=0)
+    out           = (x - sample_mean)/sample_var
+    cache         = { 'xhat': out }
+    cache['mean'] = sample_mean
+    cache['var']  = sample_var
+    out           = gamma * out + beta
+    running_mean  = momentum * running_mean + (1 - momentum) * sample_mean
+    running_var   = momentum * running_var + (1 - momentum) * sample_var
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -185,7 +193,10 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # and shift the normalized data using gamma and beta. Store the result in   #
     # the out variable.                                                         #
     #############################################################################
-    pass
+    # Here running_mean and running_var will not be empty
+    out   = (x - running_mean)/running_var
+    out   = gamma * out + beta
+    cache = {}
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -195,6 +206,11 @@ def batchnorm_forward(x, gamma, beta, bn_param):
   # Store the updated running means back into bn_param
   bn_param['running_mean'] = running_mean
   bn_param['running_var'] = running_var
+
+  # store cache elements
+  cache['x']     = x
+  cache['gamma'] = gamma
+  cache['beta']  = beta
 
   return out, cache
 
@@ -221,7 +237,21 @@ def batchnorm_backward(dout, cache):
   # TODO: Implement the backward pass for batch normalization. Store the      #
   # results in the dx, dgamma, and dbeta variables.                           #
   #############################################################################
-  pass
+  x           = cache['x']
+  gamma       = cache['gamma']
+  beta        = cache['beta']
+  mean        = cache['mean']
+  var         = cache['var']
+  xhat        = cache['xhat']
+  m           = x.shape[0]
+
+  # calculate each directive
+  dxhat       = dout * gamma
+  dvar_square = np.sum(dxhat * ((x - mean) * (-0.5) * (var ** -3)), axis=0)
+  dmean       = - np.sum(dxhat / var, axis=0) + dvar_square * np.sum(-2 * (x - mean) / m, axis=0)
+  dx          = dxhat / var + dvar_square * 2 * (x - mean) / m + dmean / m
+  dgamma      = np.sum(dout * xhat, axis=0)
+  dbeta       = np.sum(dout, axis=0)
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -251,7 +281,22 @@ def batchnorm_backward_alt(dout, cache):
   # should be able to compute gradients with respect to the inputs in a       #
   # single statement; our implementation fits on a single 80-character line.  #
   #############################################################################
-  pass
+  x           = cache['x']
+  gamma       = cache['gamma']
+  beta        = cache['beta']
+  mean        = cache['mean']
+  var         = cache['var']
+  xhat        = cache['xhat']
+  m           = x.shape[0]
+
+  # calculate each directive
+  dxhat       = dout * gamma
+  dx          = ((dxhat - 
+                 (np.sum(dxhat, axis=0) + 
+                  xhat*np.sum(dxhat * xhat, axis=0) -
+                  np.sum(dxhat * xhat * np.sum(xhat, axis=0), axis=0) / m) / m)) / var
+  dgamma      = np.sum(dout * xhat, axis=0)
+  dbeta       = np.sum(dout, axis=0)
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
