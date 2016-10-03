@@ -36,6 +36,7 @@ class TwoLayerNet(object):
     """
     self.params = {}
     self.reg = reg
+    self.dropout = dropout
     
     ############################################################################
     # TODO: Initialize the weights and biases of the two-layer net. Weights    #
@@ -81,7 +82,9 @@ class TwoLayerNet(object):
     # class scores for X and storing them in the scores variable.              #
     ############################################################################
     y1, cache1 = affine_relu_forward(X, self.params['W1'], self.params['b1'])
-    y2, cache2 = affine_forward(y1, self.params['W2'], self.params['b2'])
+    if self.dropout != None:
+      yd, cached = dropout_forward(y1, { p: self.dropout, mode: 'train' })
+    y2, cache2 = affine_forward(yd, self.params['W2'], self.params['b2'])
     scores = y2
     ############################################################################
     #                             END OF YOUR CODE                             #
@@ -106,7 +109,8 @@ class TwoLayerNet(object):
     # If we have many weights, regularization will sum them up.
     loss += 0.5 * self.reg * (np.sum(self.params['W2'] ** 2) + np.sum(self.params['W1'] ** 2))
     dx1, grads['W2'], grads['b2'] = affine_backward(dx, cache2)
-    dx2, grads['W1'], grads['b1'] = affine_relu_backward(dx1, cache1)
+    dxd                           = dropout_backward(dx1, cached)
+    dx2, grads['W1'], grads['b1'] = affine_relu_backward(dxd, cache1)
     # The idea behind this:
     # add additional gradient for the regularization component.
     # the derivative form could be easily derived by decomposing the sum formula.
